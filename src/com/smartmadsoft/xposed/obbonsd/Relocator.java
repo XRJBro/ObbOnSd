@@ -13,7 +13,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 public class Relocator implements IXposedHookLoadPackage {
 
-	public static boolean DEBUG = false;
+	public static boolean DEBUG = true;
 	public static final String TAG = "ObbOnSd";
 	
 	String namespace;
@@ -27,40 +27,52 @@ public class Relocator implements IXposedHookLoadPackage {
 			return;		
 		
 		if (isExcludedPackage(lpparam.packageName))
-			return;
-		
+			return;		
+				
 		realInternal = Environment.getExternalStorageDirectory().getPath();
 		realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
 		
 		namespace = lpparam.packageName;
-		File obbDir = new File(realExternal + "/Android/obb/" + namespace + "/");
-		File dataDir = new File(realExternal + "/Android/data/" + namespace + "/");
-
-		boolean obbFound = false;
-		boolean dataFound = false;
 		
-		log(namespace + ": before data dir check");
-		if (dataDir.isDirectory()) {
-			if (containsFile(new File(dataDir.getPath()))) 
-				dataFound = true;
-		}
-		
-		log(namespace + ": before obb dir check");		
-		if (obbDir.isDirectory()) {		
-			File files[] = obbDir.listFiles();			
+		if (lpparam.packageName.equals("com.android.providers.downloads.ui") || lpparam.packageName.equals("com.android.vending")) {
 			
-			for (File file : files) {
-				if (file.getName().endsWith(namespace + ".obb")) {
-					obbFound = true;
-					break;
+			XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					if (param.args[0].toString().startsWith(realExternal))
+						return;
+					if (param.args[0].toString().endsWith(".obb")) 						
+						if (isObbOnSd(getPkgFromFullPath(param.args[0].toString())))
+							param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);
+					
+				}			
+			});
+			
+			XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, String.class, new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					if (param.args[0].toString().startsWith(realExternal))
+						return;
+					if (param.args[1].toString().endsWith(".obb")) 						
+						if (isObbOnSd(getPkgFromPath(param.args[0].toString())))
+							param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);					
+				}			
+			});
+			
+			XposedBridge.hookAllMethods(XposedHelpers.findClass("java.io.File", lpparam.classLoader), "renameTo", new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					if (param.args[0].toString().startsWith(realExternal))
+						return;
+					if (param.args[0].toString().endsWith(".obb"))
+						if (isObbOnSd(getPkgFromFullPath(param.args[0].toString())))
+							param.args[0] = new File(param.args[0].toString().replaceFirst("^" + realInternal, realExternal));					
 				}
-			}
-		}
-		
-		//log(namespace + ": obbFound=" + Boolean.toString(obbFound));
-		//log(namespace + ": dataFound=" + Boolean.toString(dataFound));
-		
-		if (!obbFound && !dataFound)
+		    });
+			return;
+		}		
+				
+		if (!isObbOnSd(namespace) && !isDataOnSd(namespace))
 			return;
 		
 		log(namespace + " hooked");
@@ -68,22 +80,16 @@ public class Relocator implements IXposedHookLoadPackage {
 		XposedBridge.hookAllMethods(XposedHelpers.findClass("android.os.Environment", lpparam.classLoader), "getExternalStorageDirectory", new XC_MethodHook() {
 			@Override
 			protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-				//String path = param.getResult().toString();
-				//log("getExternalStorageDirectory: " + path);
-				//log("getExternalStorageDirectory (new): " + realExternal);
 				param.setResult(new File(realExternal));
 			}
-	    });
-		
+	    });		
 		
 		XposedBridge.hookAllMethods(XposedHelpers.findClass("android.app.ContextImpl", lpparam.classLoader), "getObbDir", new XC_MethodHook() {
 			@Override
 			protected void afterHookedMethod(MethodHookParam param) throws Throwable {
 				File dir = (File) param.getResult();
-				//log("getObbDir: " + dir.getPath());
 				String path = dir.getPath().replaceFirst("^" + realInternal, realExternal);
-				log("getObbDir (new): " + path);
-				param.setResult(new File(realExternal));				
+				param.setResult(new File(path));				
 			}
 	    });
 		
@@ -91,36 +97,10 @@ public class Relocator implements IXposedHookLoadPackage {
 			@Override
 			protected void afterHookedMethod(MethodHookParam param) throws Throwable {
 				File file = (File) param.getResult();
-				//log("getExternalFilesDir: " + file.getPath());
 				String path = file.getPath().replaceFirst("^" + realInternal, realExternal);
 				param.setResult(new File(path));
 			}
 	    });
-		
-		/*
-		XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, new XC_MethodHook() {
-			@Override
-			protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-				//log("File (String)");
-				if (param.args[0].toString().startsWith(realInternal)) {
-					log("File (String): " + param.args[0].toString());
-					param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);
-				}
-			}			
-		});
-		
-		XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, String.class, new XC_MethodHook() {
-			@Override
-			protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-				//log("File (String, String)");
-				if (param.args[0].toString().startsWith(realInternal)) {
-					log("File (String): " + param.args[0].toString());
-					param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);
-				}
-			}			
-		});
-		*/
-		
 	}
 	
 	void log(String text) {
@@ -131,27 +111,58 @@ public class Relocator implements IXposedHookLoadPackage {
 	}
 	
 	boolean containsFile(File directory) {
-		//log("dir: " + directory.getPath());
 		for (File file : directory.listFiles()) {
-			//log("file: " + file.getPath());
 	        if (file.isFile())
 	        	return true;
 	        else if (containsFile(file))
-	        		return true;
+	        	return true;
 		}
 		return false;
 	}
 	
-	boolean isExcludedPackage(String namespace) {
+	boolean isExcludedPackage(String packageName) {
 		ArrayList<String> excluded = new ArrayList<String>();
 		// these apps natively support extSdCard
 		excluded.add("cz.seznam.mapy");
 		excluded.add("com.skobbler.forevermapng");
 		
-		if (excluded.contains(namespace))
+		if (excluded.contains(packageName))
 			return true;
 		
 		return false;
 	}
+	
+	boolean isObbOnSd(String packageName) {
+		File obbDir = new File(realExternal + "/Android/obb/" + packageName + "/");		
+		if (obbDir.isDirectory()) {		
+			File files[] = obbDir.listFiles();			
+			for (File file : files) {
+				if (file.getName().endsWith(packageName + ".obb")) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	boolean isDataOnSd(String packageName) {
+		File dataDir = new File(realExternal + "/Android/data/" + packageName + "/");		
+		if (dataDir.isDirectory()) {
+			if (containsFile(new File(dataDir.getPath()))) 
+				return true;
+		}		
+		return false;
+	}
+	
+	String getPkgFromPath(String path) {
+		int start = path.lastIndexOf(File.separator, path.length()-1);
+		return path.substring(start).replace(File.separator, "");
+	}
+	
+	String getPkgFromFullPath(String path) {
+		int end = path.lastIndexOf(File.separator);
+		int start = path.lastIndexOf(File.separator, end-1);
+		return path.substring(start+1, end);
+	}	
 
 }
