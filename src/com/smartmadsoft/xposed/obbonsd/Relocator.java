@@ -125,6 +125,7 @@ public class Relocator implements IXposedHookLoadPackage {
 		// these apps natively support extSdCard
 		excluded.add("cz.seznam.mapy");
 		excluded.add("com.skobbler.forevermapng");
+		excluded.add("com.mapswithme.maps.pro");
 		
 		if (excluded.contains(packageName))
 			return true;
