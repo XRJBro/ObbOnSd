@@ -13,7 +13,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 public class Relocator implements IXposedHookLoadPackage {
 
-	public static boolean DEBUG = true;
+	public static boolean DEBUG = false;
 	public static final String TAG = "ObbOnSd";
 	
 	String namespace;
@@ -21,20 +21,12 @@ public class Relocator implements IXposedHookLoadPackage {
 	String realExternal;
 	
 	@Override
-	public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
-		
-		if (lpparam.packageName.equals("android"))
-			return;		
-		
-		if (isExcludedPackage(lpparam.packageName))
-			return;		
-				
-		realInternal = Environment.getExternalStorageDirectory().getPath();
-		realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
-		
-		namespace = lpparam.packageName;
+	public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {		
 		
 		if (lpparam.packageName.equals("com.android.providers.downloads.ui") || lpparam.packageName.equals("com.android.vending")) {
+			
+			realInternal = Environment.getExternalStorageDirectory().getPath();
+			realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
 			
 			XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, new XC_MethodHook() {
 				@Override
@@ -44,7 +36,6 @@ public class Relocator implements IXposedHookLoadPackage {
 					if (param.args[0].toString().endsWith(".obb")) 						
 						if (isObbOnSd(getPkgFromFullPath(param.args[0].toString())))
 							param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);
-					
 				}			
 			});
 			
@@ -70,7 +61,15 @@ public class Relocator implements IXposedHookLoadPackage {
 				}
 		    });
 			return;
-		}		
+		}
+		
+		if (isExcludedPackage(lpparam.packageName))
+			return;		
+				
+		realInternal = Environment.getExternalStorageDirectory().getPath();
+		realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
+		
+		namespace = lpparam.packageName;
 				
 		if (!isObbOnSd(namespace) && !isDataOnSd(namespace))
 			return;
@@ -121,6 +120,13 @@ public class Relocator implements IXposedHookLoadPackage {
 	}
 	
 	boolean isExcludedPackage(String packageName) {
+		
+		if (packageName.equals("android") || packageName.startsWith("com.android.") || packageName.startsWith("com.google."))
+			return true;
+		
+		if (packageName.startsWith("com.samsung.") || packageName.startsWith("com.sec."))
+			return true;
+		
 		ArrayList<String> excluded = new ArrayList<String>();
 		// these apps natively support extSdCard
 		excluded.add("cz.seznam.mapy");
