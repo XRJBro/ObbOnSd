@@ -14,6 +14,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 public class Relocator implements IXposedHookLoadPackage {
 
 	public static boolean DEBUG = false;
+	public static boolean PLAY_STORE_HOOKS = true;
 	public static final String TAG = "ObbOnSd";
 	
 	String namespace;
@@ -23,45 +24,46 @@ public class Relocator implements IXposedHookLoadPackage {
 	@Override
 	public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {		
 		
-		if (lpparam.packageName.equals("com.android.providers.downloads.ui") || lpparam.packageName.equals("com.android.vending")) {
-			
-			realInternal = Environment.getExternalStorageDirectory().getPath();
-			realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
-			
-			XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					if (param.args[0].toString().startsWith(realExternal))
-						return;
-					if (param.args[0].toString().endsWith(".obb")) 						
-						if (isObbOnSd(getPkgFromFullPath(param.args[0].toString())))
-							param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);
-				}			
-			});
-			
-			XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, String.class, new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					if (param.args[0].toString().startsWith(realExternal))
-						return;
-					if (param.args[1].toString().endsWith(".obb")) 						
-						if (isObbOnSd(getPkgFromPath(param.args[0].toString())))
-							param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);					
-				}			
-			});
-			
-			XposedBridge.hookAllMethods(XposedHelpers.findClass("java.io.File", lpparam.classLoader), "renameTo", new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					if (param.args[0].toString().startsWith(realExternal))
-						return;
-					if (param.args[0].toString().endsWith(".obb"))
-						if (isObbOnSd(getPkgFromFullPath(param.args[0].toString())))
-							param.args[0] = new File(param.args[0].toString().replaceFirst("^" + realInternal, realExternal));					
-				}
-		    });
-			return;
-		}
+		if (PLAY_STORE_HOOKS)
+			if (lpparam.packageName.equals("com.android.providers.downloads.ui") || lpparam.packageName.equals("com.android.vending")) {
+				
+				realInternal = Environment.getExternalStorageDirectory().getPath();
+				realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
+				
+				XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, new XC_MethodHook() {
+					@Override
+					protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+						if (param.args[0].toString().startsWith(realExternal))
+							return;
+						if (param.args[0].toString().endsWith(".obb")) 						
+							if (isObbOnSd(getPkgFromFullPath(param.args[0].toString())))
+								param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);
+					}			
+				});
+				
+				XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, String.class, new XC_MethodHook() {
+					@Override
+					protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+						if (param.args[0].toString().startsWith(realExternal))
+							return;
+						if (param.args[1].toString().endsWith(".obb")) 						
+							if (isObbOnSd(getPkgFromPath(param.args[0].toString())))
+								param.args[0] = param.args[0].toString().replaceFirst("^" + realInternal, realExternal);					
+					}			
+				});
+				
+				XposedBridge.hookAllMethods(XposedHelpers.findClass("java.io.File", lpparam.classLoader), "renameTo", new XC_MethodHook() {
+					@Override
+					protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+						if (param.args[0].toString().startsWith(realExternal))
+							return;
+						if (param.args[0].toString().endsWith(".obb"))
+							if (isObbOnSd(getPkgFromFullPath(param.args[0].toString())))
+								param.args[0] = new File(param.args[0].toString().replaceFirst("^" + realInternal, realExternal));					
+					}
+			    });
+				return;
+			}
 		
 		if (isExcludedPackage(lpparam.packageName))
 			return;		
