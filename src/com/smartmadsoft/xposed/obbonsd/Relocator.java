@@ -123,7 +123,7 @@ public class Relocator implements IXposedHookLoadPackage {
 	
 	boolean isExcludedPackage(String packageName) {
 		
-		if (packageName.equals("android") || packageName.startsWith("com.android.") || packageName.startsWith("com.google."))
+		if (packageName.equals("android") || packageName.startsWith("com.android.") || (packageName.startsWith("com.google.") && !(packageName.equals("com.google.android.apps.translate"))))
 			return true;
 		
 		if (packageName.startsWith("com.samsung.") || packageName.startsWith("com.sec."))
