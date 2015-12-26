@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+        xmlns:android="http://schemas.android.com/apk/res/android"        
+        android:key="preferencescreen">
+
+	<SwitchPreference
+		android:defaultValue="false"
+		android:key="enable_dataonsd"
+		android:title="Data On SD"
+		android:summary="Detect files in data folder on SD as well" />
+
+	<SwitchPreference
+		android:defaultValue="false"
+		android:key="enable_playstorehooks"
+		android:title="Play Store Hooks"
+		android:summary="Allow direct updating of OBB files on SD from Play Store" />
+
+</PreferenceScreen> 
