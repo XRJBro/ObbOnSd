@@ -13,6 +13,12 @@
 		android:defaultValue="false"
 		android:key="enable_playstorehooks"
 		android:title="Play Store Hooks"
-		android:summary="Allow direct updating of OBB files on SD from Play Store" />
+		android:summary="Allow direct updating of OBB files on SD from Play Store. May cause crashes!" />
+
+	<SwitchPreference
+		android:defaultValue="false"
+		android:key="enable_alternative"
+		android:title="Detect SD on Android 5/6"
+		android:summary="" />
 
 </PreferenceScreen> 

@@ -3,6 +3,9 @@ package com.smartmadsoft.xposed.obbonsd;
 import java.io.File;
 import java.util.ArrayList;
 
+import android.app.AndroidAppHelper;
+import android.content.Context;
+import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -39,8 +42,10 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
         if (prefs.getBoolean("enable_playstorehooks", false))
             if (lpparam.packageName.equals("com.android.providers.downloads.ui") || lpparam.packageName.equals("com.android.vending")) {
 
-                realInternal = Environment.getExternalStorageDirectory().getPath();
-                realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
+                setPaths();
+
+                if (realExternal == null)
+                    return;
 
                 XposedHelpers.findAndHookConstructor("java.io.File", lpparam.classLoader, String.class, new XC_MethodHook() {
                     @Override
@@ -80,15 +85,19 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
         if (isExcludedPackage(lpparam.packageName))
             return;
 
-        realInternal = Environment.getExternalStorageDirectory().getPath();
-        realExternal = System.getenv("SECONDARY_STORAGE").split(":")[0];
+        setPaths();
+
+        //log(realInternal + " & " + realExternal);
+
+        if (realExternal == null)
+            return;
 
         namespace = lpparam.packageName;
 
         if (!isObbOnSd(namespace) && !isDataOnSd(namespace))
             return;
 
-        log(namespace + " hooked");
+        log(namespace + " hooking");
 
         XposedBridge.hookAllMethods(XposedHelpers.findClass("android.os.Environment", lpparam.classLoader), "getExternalStorageDirectory", new XC_MethodHook() {
             @Override
@@ -114,6 +123,8 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
                 param.setResult(new File(path));
             }
         });
+
+        log(namespace + " hooked");
     }
 
     void log(String text) {
@@ -135,10 +146,14 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
 
     boolean isExcludedPackage(String packageName) {
 
-        if (packageName.equals("android") || packageName.startsWith("com.android.") || (packageName.startsWith("com.google.") && !(packageName.equals("com.google.android.apps.translate"))))
+        if (packageName.equals("android") ||
+                packageName.startsWith("com.android.") ||
+                (packageName.startsWith("com.google.") && !(packageName.equals("com.google.android.apps.translate"))))
             return true;
 
-        if (packageName.startsWith("com.samsung.") || packageName.startsWith("com.sec."))
+        if (packageName.startsWith("com.samsung.") ||
+                packageName.startsWith("com.sec.") ||
+                packageName.startsWith("com.smartmadsoft."))
             return true;
 
         ArrayList<String> excluded = new ArrayList<String>();
@@ -186,7 +201,19 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
     String getPkgFromFullPath(String path) {
         int end = path.lastIndexOf(File.separator);
         int start = path.lastIndexOf(File.separator, end-1);
-        return path.substring(start+1, end);
+        return path.substring(start + 1, end);
     }
 
+    void setPaths() {
+        realInternal = Environment.getExternalStorageDirectory().getPath();
+        if (prefs.getBoolean("enable_alternative", false)) {
+            realExternal = prefs.getString("path", null);
+        } else {
+            String env = System.getenv("SECONDARY_STORAGE");
+            if (env == null)
+                realExternal = null;
+            else
+                realExternal = env.split(":")[0];
+        }
+    }
 }
