@@ -3,9 +3,6 @@ package com.smartmadsoft.xposed.obbonsd;
 import java.io.File;
 import java.util.ArrayList;
 
-import android.app.AndroidAppHelper;
-import android.content.Context;
-import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -22,7 +19,6 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
     private static XSharedPreferences prefs;
 
     public static final boolean DEBUG = false;
-    //public static boolean PLAY_STORE_HOOKS = true;
     public static final String TAG = "ObbOnSd";
 
     String namespace;
@@ -38,7 +34,6 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
 
-        //if (PLAY_STORE_HOOKS)
         if (prefs.getBoolean("enable_playstorehooks", false))
             if (lpparam.packageName.equals("com.android.providers.downloads.ui") || lpparam.packageName.equals("com.android.vending")) {
 
@@ -205,7 +200,7 @@ public class Relocator implements IXposedHookZygoteInit, IXposedHookLoadPackage 
     }
 
     void setPaths() {
-        realInternal = Environment.getExternalStorageDirectory().getPath();
+        realInternal = prefs.getString("path_internal", Environment.getExternalStorageDirectory().getPath());
         if (prefs.getBoolean("enable_alternative", false)) {
             realExternal = prefs.getString("path", null);
         } else {
